@@ -15,7 +15,8 @@ from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from django.db.models import Count
+from django.db.models import Count, Sum
+from django.http import HttpResponse
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
@@ -98,6 +99,75 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer = RecipeMiniSerializer(recipe, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
+    def shopping_cart(self, request, pk=None):
+        user = request.user
+        recipe = get_object_or_404(Recipe, pk=pk)
+
+        if request.method == 'DELETE':
+            cart_item = ShoppingCart.objects.filter(user=user, recipe=recipe)
+            if cart_item.exists():
+                cart_item.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({'errors': 'Рецепт не в корзине'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
+            return Response(
+                {"errors": "Рецепт уже в списке покупок."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        ShoppingCart.objects.create(user=user, recipe=recipe)
+        serializer = RecipeMiniSerializer(recipe, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+    @action(
+        detail=True,
+        methods=['get'],
+        permission_classes=[AllowAny],
+        url_path='get-link'
+    )
+    def get_link(self, request, pk=None):
+        recipe = self.get_object()
+
+        recipe_path = f'/api/recipes/{recipe.pk}/'
+
+        try:
+            link = request.build_absolute_uri(recipe_path)
+            response_data = {'short-link': link}
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Error generating link: {e}")
+            return Response(
+                {'error': 'Could not generate link.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'], url_path='download_shopping_cart')
+    def download_shopping_cart(self, request):
+        user = request.user
+
+        recipes = Recipe.objects.filter(shopping_cart__user=user)
+
+        ingredients = (
+            RecipeIngredient.objects
+            .filter(recipe__in=recipes)
+            .values('ingredient__name', 'ingredient__measurement_unit')
+            .annotate(total_amount=Sum('amount'))
+            .order_by('ingredient__name')
+        )
+
+        lines = [
+            f"{item['ingredient__name']} ({item['ingredient__measurement_unit']}) — {item['total_amount']}"
+            for item in ingredients
+        ]
+        content = "\n".join(lines)
+
+        response = HttpResponse(content, content_type='text/plain')
+        response['Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
+        return response
+
 class UserViewSet(DjoserUserViewSet):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
@@ -158,4 +228,19 @@ class UserViewSet(DjoserUserViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         Follow.objects.filter(user=request.user, author=author).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['put'], permission_classes=[IsAuthenticated], url_path='me/avatar', serializer_class=AvatarSerializer)
+    def set_avatar(self, request):
+        serializer = self.get_serializer(instance=request.user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @set_avatar.mapping.delete
+    def delete_avatar(self, request):
+        user = request.user
+        if not user.avatar:
+            return Response({'errors': 'Avatar not set.'}, status=status.HTTP_400_BAD_REQUEST)
+        user.avatar.delete(save=True)
         return Response(status=status.HTTP_204_NO_CONTENT)
