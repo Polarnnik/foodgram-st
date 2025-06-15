@@ -1,6 +1,5 @@
-version: '3.3'
+version: "3.3"
 services:
-
   frontend:
     container_name: foodgram-front
     build: ../frontend
