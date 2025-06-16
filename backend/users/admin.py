@@ -9,15 +9,27 @@ User = get_user_model()
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    ordering = ['email']
+    ordering = ["email"]
     list_display = (
-        'id', 'email', 'username', 'first_name', 'last_name', 'is_staff', )
-    list_filter = ('is_staff', 'is_superuser', 'is_active')
-    search_fields = ('email', 'username', 'first_name', 'last_name',)
-    readonly_fields = ('last_login', 'date_joined')
+        "id",
+        "email",
+        "username",
+        "first_name",
+        "last_name",
+        "is_staff",
+    )
+    list_filter = ("is_staff", "is_superuser", "is_active")
+    search_fields = (
+        "email",
+        "username",
+        "first_name",
+        "last_name",
+    )
+    readonly_fields = ("last_login", "date_joined")
+
 
 @admin.register(Follow)
 class FollowAdmin(admin.ModelAdmin):
-    list_display = ('user', 'author')
-    search_fields = ('user__username', 'author__username')
-    list_filter = ('author',)
+    list_display = ("user", "author")
+    search_fields = ("user__username", "author__username")
+    list_filter = ("author",)

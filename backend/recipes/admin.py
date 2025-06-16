@@ -1,18 +1,19 @@
 from django.contrib import admin
 from .models import Recipe, Tag, RecipeIngredient, Ingredient, Favorite, ShoppingCart
 
+
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'slug')
-    search_fields = ('name',)
-    prepopulated_fields = {'slug': ('name',)}
+    list_display = ("id", "name", "slug")
+    search_fields = ("name",)
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'measurement_unit')
-    search_fields = ('name',)
-    list_filter = ('measurement_unit',)
+    list_display = ("id", "name", "measurement_unit")
+    search_fields = ("name",)
+    list_filter = ("measurement_unit",)
 
 
 class RecipeIngredientInline(admin.TabularInline):
@@ -23,25 +24,25 @@ class RecipeIngredientInline(admin.TabularInline):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'author', 'cooking_time', 'get_favorites_count')
-    search_fields = ('name', 'author__username', 'tags__name')
-    list_filter = ('tags', 'author')
+    list_display = ("id", "name", "author", "cooking_time", "get_favorites_count")
+    search_fields = ("name", "author__username", "tags__name")
+    list_filter = ("tags", "author")
     inlines = [RecipeIngredientInline]
 
-    @admin.display(description='Favorites Count')
+    @admin.display(description="Favorites Count")
     def get_favorites_count(self, obj):
         return obj.favorite_relations.count()
 
 
 @admin.register(Favorite)
 class FavoriteAdmin(admin.ModelAdmin):
-    list_display = ('user', 'recipe')
-    search_fields = ('user__username', 'recipe__name')
-    list_filter = ('user', 'recipe')
+    list_display = ("user", "recipe")
+    search_fields = ("user__username", "recipe__name")
+    list_filter = ("user", "recipe")
 
 
 @admin.register(ShoppingCart)
 class ShoppingCartAdmin(admin.ModelAdmin):
-    list_display = ('user', 'recipe')
-    search_fields = ('user__username', 'recipe__name')
-    list_filter = ('user', 'recipe')
+    list_display = ("user", "recipe")
+    search_fields = ("user__username", "recipe__name")
+    list_filter = ("user", "recipe")
