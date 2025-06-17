@@ -1,29 +1,15 @@
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db.models import Exists, OuterRef, Manager
+from django.db.models import Exists, OuterRef, Manager, Value, BooleanField
 from users.models import User
 from django.conf import settings
+from django.urls import reverse
 
-
-class Tag(models.Model):
-    name = models.CharField(
-        max_length=200,
-        unique=True,
-        verbose_name="Tag Name",
-    )
-    slug = models.SlugField(
-        max_length=200,
-        unique=True,
-        verbose_name="Slug",
-    )
-
-    class Meta:
-        verbose_name = "Tag"
-        verbose_name_plural = "Tags"
-        ordering = ["name"]
-
-    def __str__(self):
-        return self.name
+# Константы
+MIN_AMOUNT = 1
+MAX_AMOUNT = 32_000
+MIN_COOKING_TIME = 1
+MAX_COOKING_TIME = 32_000
 
 
 class Ingredient(models.Model):
@@ -40,6 +26,7 @@ class Ingredient(models.Model):
         verbose_name = "Ingredient"
         verbose_name_plural = "Ingredients"
         ordering = ["name"]
+
         constraints = [
             models.UniqueConstraint(
                 fields=["name", "measurement_unit"],
@@ -64,8 +51,8 @@ class RecipeManager(Manager):
                 ),
             )
         return queryset.annotate(
-            is_favorited=models.Value(False, output_field=models.BooleanField()),
-            is_in_shopping_cart=models.Value(False, output_field=models.BooleanField()),
+            is_favorited=Value(False, output_field=BooleanField()),
+            is_in_shopping_cart=Value(False, output_field=BooleanField()),
         )
 
 
@@ -89,14 +76,9 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name="Cooking Time (minutes)",
         validators=[
-            MinValueValidator(1, message="Time must be at least 1 minute."),
-            MaxValueValidator(1440, message="Time cannot exceed 1440 minutes."),
+            MinValueValidator(MIN_COOKING_TIME, message="Time must be at least 1 minute."),
+            MaxValueValidator(MAX_COOKING_TIME, message="Time cannot exceed 32,000 minutes."),
         ],
-    )
-    tags = models.ManyToManyField(
-        Tag,
-        related_name="recipes",
-        verbose_name="Tags",
     )
     ingredients = models.ManyToManyField(
         Ingredient,
@@ -114,11 +96,11 @@ class Recipe(models.Model):
         verbose_name = "Recipe"
         verbose_name_plural = "Recipes"
 
-    def get_absolute_url(self):
-        return reverse("api:recipe-detail", kwargs={"pk": self.pk})
-
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse("api:recipe-detail", kwargs={"pk": self.pk})
 
 
 class RecipeIngredient(models.Model):
@@ -137,13 +119,15 @@ class RecipeIngredient(models.Model):
     amount = models.PositiveSmallIntegerField(
         verbose_name="Amount",
         validators=[
-            MinValueValidator(1, message="Amount must be at least 1."),
+            MinValueValidator(MIN_AMOUNT, message="Amount must be at least 1."),
+            MaxValueValidator(MAX_AMOUNT, message="Amount cannot exceed 32,000."),
         ],
     )
 
     class Meta:
         verbose_name = "Recipe Ingredient"
         verbose_name_plural = "Recipe Ingredients"
+        ordering = ["ingredient__name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["recipe", "ingredient"],
@@ -163,7 +147,7 @@ class UserRecipeRelation(models.Model):
         verbose_name="User",
     )
     recipe = models.ForeignKey(
-        "Recipe",
+        Recipe,
         on_delete=models.CASCADE,
         related_name="%(class)s_relations",
         verbose_name="Recipe",
@@ -171,6 +155,7 @@ class UserRecipeRelation(models.Model):
 
     class Meta:
         abstract = True
+        ordering = ["user", "recipe"]
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "recipe"],
@@ -199,3 +184,6 @@ class ShoppingCart(UserRecipeRelation):
     class Meta(UserRecipeRelation.Meta):
         verbose_name = "Shopping Cart Item"
         verbose_name_plural = "Shopping Cart Items"
+
+    def __str__(self):
+        return f"ShoppingCart: {self.user.username} <> {self.recipe.name}"
