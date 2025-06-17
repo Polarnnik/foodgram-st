@@ -5,7 +5,6 @@ from .serializers import (
     RecipeMiniSerializer,
     RecipeReadSerializer,
     RecipeWriteSerializer,
-    TagSerializer,
     UserSerializer,
 )
 from recipes.models import (
@@ -13,7 +12,6 @@ from recipes.models import (
     Ingredient,
     Recipe,
     ShoppingCart,
-    Tag,
     RecipeIngredient,
 )
 from users.models import Follow, User
@@ -33,13 +31,6 @@ from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Sum
 from django.http import HttpResponse
-
-
-class TagViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Tag.objects.all()
-    serializer_class = TagSerializer
-    permission_classes = [AllowAny]
-    pagination_class = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
