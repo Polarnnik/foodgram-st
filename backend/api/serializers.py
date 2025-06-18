@@ -106,13 +106,9 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
 class RecipeIngredientWriteSerializer(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(
-        queryset=Ingredient.objects.all(),
-        source="ingredient"
+        queryset=Ingredient.objects.all(), source="ingredient"
     )
-    amount = serializers.IntegerField(
-        min_value=MIN_AMOUNT,
-        max_value=MAX_AMOUNT
-    )
+    amount = serializers.IntegerField(min_value=MIN_AMOUNT, max_value=MAX_AMOUNT)
 
     class Meta:
         model = RecipeIngredient
@@ -123,8 +119,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     ingredients = RecipeIngredientWriteSerializer(many=True, allow_empty=False)
     image = Base64ImageField()
     cooking_time = serializers.IntegerField(
-        min_value=MIN_COOKING_TIME,
-        max_value=MAX_COOKING_TIME
+        min_value=MIN_COOKING_TIME, max_value=MAX_COOKING_TIME
     )
 
     class Meta:
@@ -143,23 +138,24 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         return value
 
     def create_ingredients(self, recipe, ingredients_data):
-        RecipeIngredient.objects.bulk_create([
-            RecipeIngredient(
-                recipe=recipe,
-                ingredient=item["ingredient"],
-                amount=item["amount"]
-            )
-            for item in ingredients_data
-        ])
+        RecipeIngredient.objects.bulk_create(
+            [
+                RecipeIngredient(
+                    recipe=recipe, ingredient=item["ingredient"], amount=item["amount"]
+                )
+                for item in ingredients_data
+            ]
+        )
 
     @transaction.atomic
     def create(self, validated_data):
         ingredients = validated_data.pop("ingredients")
         user = self.context["request"].user
         recipe = Recipe.objects.create(author=user, **validated_data)
-        recipe.is_favorited = False
-        recipe.is_in_shopping_cart = False
         self.create_ingredients(recipe, ingredients)
+
+        recipe = Recipe.objects.with_user_annotations(user).get(pk=recipe.pk)
+
         return recipe
 
     @transaction.atomic
@@ -185,7 +181,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
         user = request.user
         instance.is_favorited = instance.favorite_relations.filter(user=user).exists()
-        instance.is_in_shopping_cart = instance.shopping_cart_relations.filter(user=user).exists()
+        instance.is_in_shopping_cart = instance.shopping_cart.filter(user=user).exists()
 
         return instance
 

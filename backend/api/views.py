@@ -70,24 +70,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
-        serializer.is_valid(
-            raise_exception=True
-        )
+        serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def _toggle_relation(self, request, pk, model):
-        recipe = get_object_or_404(Recipe, pk=pk)
-        relation, created = model.objects.get_or_create(
-            user=request.user, recipe=recipe
-        )
-
-        if not created:
-            relation.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        serializer = RecipeMiniSerializer(recipe)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(
         detail=True, methods=["post", "delete"], permission_classes=[IsAuthenticated]
@@ -97,15 +82,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, pk=pk)
 
         if request.method == "DELETE":
-            favorite = Favorite.objects.filter(user=user, recipe=recipe)
-            if favorite.exists():
-                favorite.delete()
+            favorite_relation = user.favorite_relations.filter(recipe=recipe)
+            if favorite_relation.exists():
+                favorite_relation.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
             return Response(
                 {"errors": "Рецепт не в избранном"}, status=status.HTTP_400_BAD_REQUEST
             )
-
-        if Favorite.objects.filter(user=user, recipe=recipe).exists():
+        if user.favorite_relations.filter(recipe=recipe).exists():
             return Response(
                 {"errors": "Рецепт уже в избранном."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -123,15 +107,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = get_object_or_404(Recipe, pk=pk)
 
         if request.method == "DELETE":
-            cart_item = ShoppingCart.objects.filter(user=user, recipe=recipe)
+            cart_item = user.shopping_cart.filter(recipe=recipe)
             if cart_item.exists():
                 cart_item.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
             return Response(
-                {"errors": "Рецепт не в корзине"}, status=status.HTTP_400_BAD_REQUEST
+                {"errors": "Рецепт не в корзине"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
+        if user.shopping_cart.filter(recipe=recipe).exists():
             return Response(
                 {"errors": "Рецепт уже в списке покупок."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -146,15 +131,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def get_link(self, request, pk=None):
         recipe = self.get_object()
-
         recipe_path = f"/api/recipes/{recipe.pk}/"
-
         try:
             link = request.build_absolute_uri(recipe_path)
             response_data = {"short-link": link}
             return Response(response_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(f"Error generating link: {e}")
+        except Exception:
             return Response(
                 {"error": "Could not generate link."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -230,10 +212,8 @@ class UserViewSet(DjoserUserViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        follow_exists = Follow.objects.filter(user=request.user, author=author).exists()
-
         if request.method == "POST":
-            if follow_exists:
+            if request.user.following.filter(author=author).exists():
                 return Response(
                     {"errors": "You are already subscribed to this author."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -242,12 +222,12 @@ class UserViewSet(DjoserUserViewSet):
             serializer = FollowSerializer(author, context={"request": request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        if not follow_exists:
+        if not request.user.following.filter(author=author).exists():
             return Response(
                 {"errors": "You are not subscribed to this author."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        Follow.objects.filter(user=request.user, author=author).delete()
+        request.user.following.filter(author=author).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(

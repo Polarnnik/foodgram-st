@@ -10,7 +10,7 @@ class Command(BaseCommand):
     help = "Import ingredients from CSV file"
 
     def handle(self, *args, **options):
-        file_path = Path(settings.BASE_DIR) / ".." / "data" / "ingredients.csv"
+        file_path = Path("/app/data/ingredients.csv")
 
         if not file_path.exists():
             self.stdout.write(self.style.ERROR(f"File not found: {file_path}"))

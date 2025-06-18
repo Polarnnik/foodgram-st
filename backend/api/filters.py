@@ -4,16 +4,12 @@ from recipes.models import Recipe, Ingredient
 
 
 class RecipeFilter(FilterSet):
-    tags = AllValuesMultipleFilter(
-        field_name="tags__slug",
-        label="Filter by tag slugs (e.g., ?tags=breakfast&tags=dinner)",
-    )
     is_favorited = filters.BooleanFilter(method="filter_is_favorited")
     is_in_shopping_cart = filters.BooleanFilter(method="filter_is_in_shopping_cart")
 
     class Meta:
         model = Recipe
-        fields = ("tags", "author", "is_favorited", "is_in_shopping_cart")
+        fields = ("author", "is_favorited", "is_in_shopping_cart")
 
     def filter_is_favorited(self, queryset, name, value):
         user = self.request.user
@@ -29,8 +25,9 @@ class RecipeFilter(FilterSet):
 
 
 class IngredientFilter(FilterSet):
-    name = filters.CharFilter(field_name="name", lookup_expr="istartswith")
 
     class Meta:
         model = Ingredient
-        fields = ("name",)
+        fields = [
+            "name",
+        ]

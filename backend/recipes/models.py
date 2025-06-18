@@ -76,8 +76,12 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name="Cooking Time (minutes)",
         validators=[
-            MinValueValidator(MIN_COOKING_TIME, message="Time must be at least 1 minute."),
-            MaxValueValidator(MAX_COOKING_TIME, message="Time cannot exceed 32,000 minutes."),
+            MinValueValidator(
+                MIN_COOKING_TIME, message="Time must be at least 1 minute."
+            ),
+            MaxValueValidator(
+                MAX_COOKING_TIME, message="Time cannot exceed 32,000 minutes."
+            ),
         ],
     )
     ingredients = models.ManyToManyField(
